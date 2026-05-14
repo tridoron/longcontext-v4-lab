@@ -1,0 +1,43 @@
+sources:
+  web:
+    path: HuggingFaceFW/fineweb-edu
+    name: sample-10BT
+    split: train
+  code:
+    path: bigcode/starcoderdata
+    split: train
+    languages:
+      - python
+      - java
+      - javascript
+      - typescript
+      - cpp
+      - c
+      - go
+      - rust
+      - sql
+      - shell
+      - kotlin
+  math:
+    path: EleutherAI/proof-pile-2
+    name: open-web-math
+    split: train
+  long_doc:
+    path: EleutherAI/proof-pile-2
+    name: arxiv
+    split: train
+split_seed: 20260514
+validation:
+  val_pretrain:
+    total_tokens: 20000000
+    mix:
+      web: 8000000
+      code: 5000000
+      math: 3000000
+      long_doc: 4000000
+  val_long:
+    total_tokens: 8000000
+    mix:
+      long_doc: 4000000
+      code: 2400000
+      math: 1600000

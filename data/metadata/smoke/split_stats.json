@@ -1,0 +1,46 @@
+{
+  "validation": {
+    "val_pretrain": {
+      "web": {
+        "docs": 1,
+        "tokens": 570,
+        "target_tokens": 512
+      },
+      "code": {
+        "docs": 2,
+        "tokens": 1689,
+        "target_tokens": 512
+      },
+      "math": {
+        "docs": 1,
+        "tokens": 1966,
+        "target_tokens": 512
+      },
+      "long_doc": {
+        "docs": 1,
+        "tokens": 3657,
+        "target_tokens": 1024
+      }
+    },
+    "val_long": {
+      "long_doc": {
+        "docs": 1,
+        "tokens": 6463,
+        "target_tokens": 1024
+      },
+      "code": {
+        "docs": 2,
+        "tokens": 1717,
+        "target_tokens": 512
+      },
+      "math": {
+        "docs": 1,
+        "tokens": 615,
+        "target_tokens": 512
+      }
+    }
+  },
+  "train_docs": 66,
+  "train_tokens": 100592,
+  "validation_doc_hashes": 9
+}

@@ -1,0 +1,14 @@
+.venv/
+.tmp/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+outputs/active/*
+outputs/logs/*
+outputs/artifacts/**
+!outputs/artifacts/.gitkeep
+data/shards/
+data/tokenizer/
+data/metadata/*.jsonl
+data/metadata/*.json
+data/metadata/*.txt

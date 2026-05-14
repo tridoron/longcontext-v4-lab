@@ -1,0 +1,12 @@
+validation:
+  val_pretrain:
+    mix:
+      web: 512
+      code: 512
+      math: 512
+      long_doc: 1024
+  val_long:
+    mix:
+      long_doc: 1024
+      code: 512
+      math: 512
