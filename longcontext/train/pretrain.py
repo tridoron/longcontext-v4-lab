@@ -11,6 +11,7 @@ from longcontext.model.config import LongContextConfig
 from longcontext.model.transformer import LongContextLM
 from longcontext.optim.build_optimizer import build_optimizer
 from longcontext.train.checkpoint import save_config
+from longcontext.train.scheduler import build_cosine_scheduler
 from longcontext.train.trainer import Trainer
 from longcontext.utils.seed import seed_everything
 
@@ -29,6 +30,9 @@ def main() -> None:
     seed_everything(int(raw.get("seed", 20260514)))
     config = LongContextConfig.from_dict(raw)
     model = LongContextLM(config)
+    training_cfg = raw.get("training", {})
+    if training_cfg.get("gradient_checkpointing", False):
+        model.gradient_checkpointing_enable()
     out_dir = Path(raw.get("output_dir", "outputs/artifacts")) / config.name
     optimizer = build_optimizer(model, raw.get("optimizer", {}), log_dir=out_dir)
     save_config(config, out_dir / "config.yaml")
@@ -47,7 +51,16 @@ def main() -> None:
         drop_last=True,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    trainer = Trainer(model, optimizer, loader, device, out_dir)
+    optimizer_cfg = raw.get("optimizer", {})
+    base_lr = float(optimizer_cfg.get("lr", 3.0e-4))
+    min_lr = float(training_cfg.get("min_lr", optimizer_cfg.get("min_lr", base_lr * 0.1)))
+    scheduler = build_cosine_scheduler(
+        optimizer,
+        warmup_steps=int(training_cfg.get("warmup_steps", optimizer_cfg.get("warmup_steps", 2000))),
+        total_steps=args.max_steps,
+        min_lr_ratio=min_lr / base_lr,
+    )
+    trainer = Trainer(model, optimizer, loader, device, out_dir, scheduler=scheduler)
     trainer.train(max_steps=args.max_steps, save_every=int(raw.get("save_every", 1000)))
 
 

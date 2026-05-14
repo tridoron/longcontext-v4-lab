@@ -10,6 +10,8 @@ import torch
 from data.dataset import PackedMemmapDataset
 from longcontext.eval.common import load_config_and_model
 
+IGNORE_INDEX = -100
+
 
 EVAL_FILES = {
     1024: "data/shards/val_pretrain_seq1024.bin",
@@ -42,7 +44,7 @@ def evaluate_ppl(
         attention_mask = batch["attention_mask"].to(device)
         out = model(input_ids, labels=labels, attention_mask=attention_mask)
         assert out.loss is not None
-        tokens = labels.ne(config.pad_token_id).sum().item()
+        tokens = labels.ne(IGNORE_INDEX).sum().item()
         total_loss += float(out.loss) * tokens
         total_tokens += tokens
     loss = total_loss / max(total_tokens, 1)

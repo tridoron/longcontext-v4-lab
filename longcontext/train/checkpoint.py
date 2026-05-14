@@ -34,6 +34,7 @@ def save_training_state(
     optimizer: Any,
     step: int,
     seen_tokens: int,
+    scheduler: Any | None = None,
     extra: dict[str, Any] | None = None,
 ) -> None:
     path = Path(path)
@@ -42,20 +43,31 @@ def save_training_state(
         {
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict() if optimizer is not None else None,
+            "scheduler": scheduler.state_dict() if scheduler is not None else None,
             "step": step,
             "seen_tokens": seen_tokens,
             "extra": extra or {},
             "rng_state": torch.get_rng_state(),
+            "cuda_rng_state": torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         },
         path,
     )
 
 
-def load_training_state(path: str | Path, model: torch.nn.Module, optimizer: Any | None = None) -> dict:
+def load_training_state(
+    path: str | Path,
+    model: torch.nn.Module,
+    optimizer: Any | None = None,
+    scheduler: Any | None = None,
+) -> dict:
     state = torch.load(path, map_location="cpu")
     model.load_state_dict(state["model"])
     if optimizer is not None and state.get("optimizer") is not None:
         optimizer.load_state_dict(state["optimizer"])
+    if scheduler is not None and state.get("scheduler") is not None:
+        scheduler.load_state_dict(state["scheduler"])
     if "rng_state" in state:
         torch.set_rng_state(state["rng_state"])
+    if torch.cuda.is_available() and state.get("cuda_rng_state") is not None:
+        torch.cuda.set_rng_state(state["cuda_rng_state"])
     return state

@@ -21,11 +21,13 @@ class Trainer:
         train_loader: Iterable,
         device: torch.device,
         output_dir: str | Path,
+        scheduler: Any | None = None,
         grad_clip: float = 1.0,
         amp_dtype: str = "bf16",
     ) -> None:
         self.model = model.to(device)
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.train_loader = train_loader
         self.device = device
         self.output_dir = Path(output_dir)
@@ -55,6 +57,8 @@ class Trainer:
                 out.loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
                 self.optimizer.step()
+                if self.scheduler is not None:
+                    self.scheduler.step()
                 tokens = input_ids.numel()
                 seen_tokens += tokens
                 last_loss = float(out.loss.detach().cpu())
@@ -74,6 +78,7 @@ class Trainer:
                         self.optimizer,
                         step,
                         seen_tokens,
+                        scheduler=self.scheduler,
                     )
         save_model_weights(self.model, self.output_dir / "weights_final.safetensors")
         return {"loss": last_loss, "seen_tokens": seen_tokens}

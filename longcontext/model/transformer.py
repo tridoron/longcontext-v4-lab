@@ -37,6 +37,12 @@ class LongContextLM(nn.Module):
             return sum(p.numel() for p in params if p.requires_grad)
         return sum(p.numel() for p in params)
 
+    def gradient_checkpointing_enable(self) -> None:
+        self.config.gradient_checkpointing = True
+
+    def gradient_checkpointing_disable(self) -> None:
+        self.config.gradient_checkpointing = False
+
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -62,7 +68,7 @@ class LongContextLM(nn.Module):
             loss = F.cross_entropy(
                 logits.reshape(-1, logits.shape[-1]),
                 labels.reshape(-1),
-                ignore_index=self.config.pad_token_id,
+                ignore_index=-100,
             )
         return LMOutput(logits=logits, loss=loss)
 

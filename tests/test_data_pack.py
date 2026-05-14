@@ -26,6 +26,21 @@ def test_pack_and_mmap_dataset(tmp_path):
     assert item["labels"].tolist() == [1, 2, 3, 4]
 
 
+def test_padded_tail_labels_are_ignored(tmp_path):
+    src = tmp_path / "tokens.bin"
+    np.arange(7, dtype=np.uint32).tofile(src)
+    out = tmp_path / "packed.bin"
+
+    count = pack_stream([src], out, seq_len=4, pad_id=0)
+    dataset = PackedMemmapDataset(out, seq_len=4)
+    item = dataset[1]
+
+    assert count == 2
+    assert item["input_ids"].tolist() == [5, 6, 0, 0]
+    assert item["labels"].tolist() == [6, -100, -100, -100]
+    assert item["attention_mask"].tolist() == [True, True, False, False]
+
+
 def test_split_validation_doc_hash_exclusion():
     rows = []
     for source in ["web", "code"]:

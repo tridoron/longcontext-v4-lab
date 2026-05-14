@@ -85,13 +85,9 @@ class CSALiteAttention(nn.Module):
         topk_scores, topk_indices = torch.topk(index_scores, k=k_eff, dim=-1)
         selected_valid = torch.isfinite(topk_scores)
 
-        k_expand = k_comp[:, None].expand(bsz, seq_len, num_blocks, self.config.n_heads, self.config.d_head)
-        v_expand = v_comp[:, None].expand_as(k_expand)
-        gather_idx = topk_indices[..., None, None].expand(
-            bsz, seq_len, k_eff, self.config.n_heads, self.config.d_head
-        )
-        selected_k = torch.gather(k_expand, 2, gather_idx).permute(0, 1, 3, 2, 4)
-        selected_v = torch.gather(v_expand, 2, gather_idx).permute(0, 1, 3, 2, 4)
+        batch_idx = torch.arange(bsz, device=x.device)[:, None, None]
+        selected_k = k_comp[batch_idx, topk_indices].permute(0, 1, 3, 2, 4)
+        selected_v = v_comp[batch_idx, topk_indices].permute(0, 1, 3, 2, 4)
 
         local_k, local_v, local_valid = gather_local_kv(k_local, v_raw, self.local_window, attention_mask)
         comp_logits = torch.einsum("bthd,bthkd->bthk", q, selected_k) / math.sqrt(

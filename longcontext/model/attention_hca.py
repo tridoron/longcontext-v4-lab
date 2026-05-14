@@ -65,15 +65,10 @@ class HCALiteAttention(nn.Module):
             self.config.rope.scaling_factor,
         )
         num_blocks = k_comp.shape[1]
-        comp_shape = (bsz, seq_len, num_blocks, self.config.n_heads, self.config.d_head)
-        k_comp_mem = k_comp[:, None].expand(
-            bsz, seq_len, num_blocks, self.config.n_heads, self.config.d_head
-        ).permute(0, 1, 3, 2, 4)
-        v_comp_mem = v_comp[:, None].expand(comp_shape).permute(0, 1, 3, 2, 4)
         token_ids = torch.arange(seq_len, device=x.device)
         block_ids = torch.arange(num_blocks, device=x.device)
         comp_valid = block_ids[None, :] < (token_ids[:, None] // self.block_size)
-        comp_logits = torch.einsum("bthd,bthgd->bthg", q, k_comp_mem) / math.sqrt(
+        comp_logits = torch.einsum("bthd,bghd->bthg", q, k_comp) / math.sqrt(
             self.config.d_head
         )
         comp_logits = comp_logits.masked_fill(~comp_valid[None, :, None, :], torch.finfo(comp_logits.dtype).min)
@@ -81,7 +76,9 @@ class HCALiteAttention(nn.Module):
         local_logits = torch.einsum("bthd,bthwd->bthw", q, local_k) / math.sqrt(self.config.d_head)
         local_logits = local_logits.masked_fill(~local_valid, torch.finfo(local_logits.dtype).min)
         logits = torch.cat((comp_logits, local_logits), dim=-1)
-        values = torch.cat((v_comp_mem, local_v), dim=3)
         attn = torch.softmax(logits.float(), dim=-1).to(dtype=x.dtype)
-        out = torch.einsum("bthm,bthmd->bthd", attn, values)
+        comp_attn, local_attn = attn.split((num_blocks, local_v.shape[3]), dim=-1)
+        comp_out = torch.einsum("bthg,bghd->bthd", comp_attn, v_comp)
+        local_out = torch.einsum("bthw,bthwd->bthd", local_attn, local_v)
+        out = comp_out + local_out
         return self.w_o(merge_heads(out))

@@ -57,3 +57,31 @@ def test_beta_raw_not_in_muon():
     _, _, _, muon_names, adamw_names = split_parameter_groups(model, use_muon=True)
     assert all("beta_raw" not in name for name in muon_names)
     assert any("beta_raw" in name for name in adamw_names)
+
+
+def test_loss_ignores_negative_100_labels():
+    config = tiny_config("full")
+    model = LongContextLM(config)
+    input_ids = torch.randint(1, config.vocab_size, (1, 4))
+    labels = torch.tensor([[-100, 2, 3, -100]])
+
+    out = model(input_ids, labels=labels)
+    expected = torch.nn.functional.cross_entropy(
+        out.logits.reshape(-1, config.vocab_size),
+        labels.reshape(-1),
+        ignore_index=-100,
+    )
+
+    assert out.loss is not None
+    assert torch.allclose(out.loss, expected)
+
+
+def test_gradient_checkpointing_toggle():
+    config = tiny_config("full")
+    model = LongContextLM(config)
+
+    model.gradient_checkpointing_enable()
+    assert model.config.gradient_checkpointing
+
+    model.gradient_checkpointing_disable()
+    assert not model.config.gradient_checkpointing
