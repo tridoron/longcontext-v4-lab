@@ -7,9 +7,15 @@ import torch
 from torch.optim import Optimizer
 
 
-def zeropower_via_newton_schulz_5(G: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
+def zeropower_via_newton_schulz_5(
+    G: torch.Tensor,
+    eps: float = 1e-7,
+    ns_steps: int = 5,
+) -> torch.Tensor:
     """5-step Hybrid Newton-Schulz 正交化更新。"""
     assert G.ndim == 2
+    if not 1 <= ns_steps <= 5:
+        raise ValueError(f"ns_steps 必须在 [1, 5] 内，当前为 {ns_steps}")
     X = G.float()
     transposed = False
     if X.size(0) > X.size(1):
@@ -23,7 +29,7 @@ def zeropower_via_newton_schulz_5(G: torch.Tensor, eps: float = 1e-7) -> torch.T
         (2.0, -1.5, 0.5),
         (2.0, -1.5, 0.5),
     ]
-    for a, b, c in coeffs:
+    for a, b, c in coeffs[:ns_steps]:
         A = X @ X.T
         B = b * A + c * (A @ A)
         X = a * X + B @ X
@@ -40,14 +46,18 @@ class Muon(Optimizer):
         weight_decay: float = 0.1,
         momentum: float = 0.95,
         nesterov: bool = True,
+        ns_steps: int = 5,
         update_scale: float = 0.2,
         eps: float = 1e-7,
     ) -> None:
+        if not 1 <= ns_steps <= 5:
+            raise ValueError(f"ns_steps 必须在 [1, 5] 内，当前为 {ns_steps}")
         defaults = dict(
             lr=lr,
             weight_decay=weight_decay,
             momentum=momentum,
             nesterov=nesterov,
+            ns_steps=ns_steps,
             update_scale=update_scale,
             eps=eps,
         )
@@ -61,6 +71,7 @@ class Muon(Optimizer):
             wd = group["weight_decay"]
             momentum = group["momentum"]
             nesterov = group["nesterov"]
+            ns_steps = group["ns_steps"]
             scale = group["update_scale"]
             eps = group["eps"]
             for p in group["params"]:
@@ -74,8 +85,8 @@ class Muon(Optimizer):
                     state["momentum_buffer"] = torch.zeros_like(p)
                 buf = state["momentum_buffer"]
                 buf.mul_(momentum).add_(grad)
-                update = buf.mul(momentum).add(grad) if nesterov else buf
-                update = zeropower_via_newton_schulz_5(update, eps=eps)
+                update = grad.add(buf, alpha=momentum) if nesterov else buf
+                update = zeropower_via_newton_schulz_5(update, eps=eps, ns_steps=ns_steps)
                 update = update * math.sqrt(max(p.shape)) * scale
                 if wd:
                     p.mul_(1.0 - lr * wd)

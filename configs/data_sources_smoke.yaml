@@ -10,3 +10,17 @@ validation:
       long_doc: 1024
       code: 512
       math: 512
+shards:
+  train_debug_seq1024:
+    path: data/smoke_shards/train_debug_seq1024.bin
+  train_main_seq4096:
+    path: data/smoke_shards/train_main_seq4096.bin
+validation_shards:
+  val_pretrain_seq1024:
+    path: data/smoke_shards/val_pretrain_seq1024.bin
+  val_pretrain_seq4096:
+    path: data/smoke_shards/val_pretrain_seq4096.bin
+  val_long_seq8192:
+    path: data/smoke_shards/val_long_seq8192.bin
+  val_long_seq16384:
+    path: data/smoke_shards/val_long_seq16384.bin

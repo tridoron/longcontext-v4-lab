@@ -8,6 +8,7 @@ from torch import nn
 from longcontext.model.attention_utils import (
     apply_block_rope,
     compress_kv,
+    causal_compressed_block_mask,
     gather_local_kv,
     merge_heads,
     split_heads,
@@ -77,10 +78,8 @@ class CSALiteAttention(nn.Module):
         index_q = self.w_iq(x)
         index_k = self.w_ik(k_comp.reshape(bsz, num_blocks, -1))
         index_scores = torch.einsum("btd,bgd->btg", index_q, index_k) / math.sqrt(self.index_dim)
-        token_ids = torch.arange(seq_len, device=x.device)
-        block_ids = torch.arange(num_blocks, device=x.device)
-        valid_block = block_ids[None, :] < (token_ids[:, None] // self.block_size)
-        index_scores = index_scores.masked_fill(~valid_block[None], torch.finfo(index_scores.dtype).min)
+        valid_block = causal_compressed_block_mask(seq_len, num_blocks, self.block_size, x.device)
+        index_scores = index_scores.masked_fill(~valid_block[None], float("-inf"))
         k_eff = min(self.top_k, num_blocks)
         topk_scores, topk_indices = torch.topk(index_scores, k=k_eff, dim=-1)
         selected_valid = torch.isfinite(topk_scores)
@@ -96,9 +95,9 @@ class CSALiteAttention(nn.Module):
         beta = torch.sigmoid(self.beta_raw)
         comp_logits = comp_logits + beta * topk_scores[:, :, None, :]
         comp_valid = selected_valid[:, :, None, :]
-        comp_logits = comp_logits.masked_fill(~comp_valid, torch.finfo(comp_logits.dtype).min)
+        comp_logits = comp_logits.masked_fill(~comp_valid, float("-inf"))
         local_logits = torch.einsum("bthd,bthwd->bthw", q, local_k) / math.sqrt(self.config.d_head)
-        local_logits = local_logits.masked_fill(~local_valid, torch.finfo(local_logits.dtype).min)
+        local_logits = local_logits.masked_fill(~local_valid, float("-inf"))
 
         logits = torch.cat((comp_logits, local_logits), dim=-1)
         values = torch.cat((selected_v, local_v), dim=3)

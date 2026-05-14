@@ -13,7 +13,12 @@ model: &main_model
   attention_type: full
 attention:
   type: full
+  swa_layers: 2
   local_window: 256
+  top_k: 128
+  index_dim: 128
+  csa: {compression_block_size: 4, top_k: 128, local_window: 256, index_dim: 128}
+  hca: {compression_block_size: 64, local_window: 256}
 rope:
   base: 10000
   scaling_type: linear_position
@@ -21,11 +26,17 @@ rope:
 mhc:
   enabled: false
 data:
-  train_file: data/shards/train_main_seq4096.bin
+  sources_config: configs/data_sources.yaml
+  train_key: train_main_seq4096
   seq_len: 4096
-  batch_size: 1
+  micro_batch_size: 1
 training:
-  seen_tokens: 150000000
+  seen_tokens: 1000000000
+  ablation_seen_tokens: 150000000
+  grad_accum_steps: 32
+  tokens_per_step: 131072
+  amp_dtype: bf16
+  milestone_tokens: [150000000, 500000000, 1000000000]
   gradient_checkpointing: true
 optimizer: &optimizer
   use_muon: false

@@ -7,6 +7,7 @@ import torch.utils.checkpoint
 from torch import nn
 from torch.nn import functional as F
 
+from longcontext.model.attention_hybrid import assert_hybrid_attention_schedule
 from longcontext.model.block import TransformerBlock
 from longcontext.model.config import LongContextConfig
 from longcontext.model.mhc import FinalMHCProjector
@@ -17,12 +18,16 @@ from longcontext.model.rmsnorm import RMSNorm
 class LMOutput:
     logits: torch.Tensor
     loss: torch.Tensor | None = None
+    loss_sum: torch.Tensor | None = None
+    loss_tokens: torch.Tensor | None = None
 
 
 class LongContextLM(nn.Module):
     def __init__(self, config: LongContextConfig) -> None:
         super().__init__()
         self.config = config
+        if config.attention.type == "hybrid":
+            assert_hybrid_attention_schedule(config.n_layers)
         self.tok_embeddings = nn.Embedding(config.vocab_size, config.d_model)
         self.blocks = nn.ModuleList([TransformerBlock(config, i) for i in range(config.n_layers)])
         self.norm = RMSNorm(config.d_model)
@@ -64,13 +69,18 @@ class LongContextLM(nn.Module):
         x = self.norm(x)
         logits = self.lm_head(x)
         loss = None
+        loss_sum = None
+        loss_tokens = None
         if labels is not None:
-            loss = F.cross_entropy(
+            loss_sum = F.cross_entropy(
                 logits.reshape(-1, logits.shape[-1]),
                 labels.reshape(-1),
                 ignore_index=-100,
+                reduction="sum",
             )
-        return LMOutput(logits=logits, loss=loss)
+            loss_tokens = labels.ne(-100).sum()
+            loss = loss_sum / loss_tokens.clamp_min(1)
+        return LMOutput(logits=logits, loss=loss, loss_sum=loss_sum, loss_tokens=loss_tokens)
 
     @torch.no_grad()
     def generate(

@@ -24,6 +24,13 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def write_val_doc_hashes(path: Path, rows_by_split: dict[str, list[dict[str, Any]]]) -> set[str]:
+    hashes = sorted({row["doc_hash"] for rows in rows_by_split.values() for row in rows})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(hashes) + "\n", encoding="utf-8")
+    return set(hashes)
+
+
 def split_validation(
     accepted_rows: list[dict[str, Any]],
     quotas: dict[str, dict[str, int]],
@@ -79,12 +86,10 @@ def main() -> None:
     quotas = {name: spec["mix"] for name, spec in cfg["validation"].items()}
     train_rows, validation, stats = split_validation(load_jsonl(Path(args.input)), quotas)
     out_dir = Path(args.output_dir)
+    write_val_doc_hashes(out_dir / "val_doc_hashes.txt", validation)
     write_jsonl(out_dir / "train_docs.jsonl", train_rows)
-    hashes: list[str] = []
     for name, rows in validation.items():
         write_jsonl(out_dir / f"{name}_docs.jsonl", rows)
-        hashes.extend(row["doc_hash"] for row in rows)
-    (out_dir / "val_doc_hashes.txt").write_text("\n".join(sorted(set(hashes))) + "\n", encoding="utf-8")
     (out_dir / "split_stats.json").write_text(
         json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
     )

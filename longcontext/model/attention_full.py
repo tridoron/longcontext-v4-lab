@@ -42,10 +42,10 @@ class FullAttention(nn.Module):
         k = apply_rope(k, cos[position_offset:], sin[position_offset:])
         logits = torch.einsum("bthd,bshd->bhts", q, k) / math.sqrt(self.config.d_head)
         causal = torch.ones(seq_len, seq_len, device=x.device, dtype=torch.bool).tril()
-        logits = logits.masked_fill(~causal[None, None], torch.finfo(logits.dtype).min)
+        logits = logits.masked_fill(~causal[None, None], float("-inf"))
         if attention_mask is not None:
             key_mask = attention_mask.to(torch.bool)[:, None, None, :]
-            logits = logits.masked_fill(~key_mask, torch.finfo(logits.dtype).min)
+            logits = logits.masked_fill(~key_mask, float("-inf"))
         attn = torch.softmax(logits.float(), dim=-1).to(dtype=x.dtype)
         out = torch.einsum("bhts,bshd->bthd", attn, v)
         return self.w_o(merge_heads(out))

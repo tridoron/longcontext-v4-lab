@@ -41,3 +41,17 @@ validation:
       long_doc: 4000000
       code: 2400000
       math: 1600000
+shards:
+  train_debug_seq1024:
+    path: data/shards/train_debug_seq1024.bin
+  train_main_seq4096:
+    path: data/shards/train_main_seq4096.bin
+validation_shards:
+  val_pretrain_seq1024:
+    path: data/shards/val_pretrain_seq1024.bin
+  val_pretrain_seq4096:
+    path: data/shards/val_pretrain_seq4096.bin
+  val_long_seq8192:
+    path: data/shards/val_long_seq8192.bin
+  val_long_seq16384:
+    path: data/shards/val_long_seq16384.bin

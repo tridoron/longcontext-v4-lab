@@ -29,6 +29,17 @@ def local_positions(
     return pos.clamp_min(0), valid
 
 
+def causal_compressed_block_mask(
+    seq_len: int,
+    num_blocks: int,
+    block_size: int,
+    device: torch.device,
+) -> torch.Tensor:
+    token_ids = torch.arange(seq_len, device=device)
+    block_ids = torch.arange(num_blocks, device=device)
+    return block_ids[None, :] < (token_ids[:, None] // block_size)
+
+
 def gather_local_kv(
     k: torch.Tensor,
     v: torch.Tensor,
@@ -57,7 +68,7 @@ def causal_local_attention(
 ) -> torch.Tensor:
     local_k, local_v, local_valid = gather_local_kv(k, v, window, attention_mask)
     logits = torch.einsum("bthd,bthwd->bthw", q, local_k) / math.sqrt(q.shape[-1])
-    logits = logits.masked_fill(~local_valid, torch.finfo(logits.dtype).min)
+    logits = logits.masked_fill(~local_valid, float("-inf"))
     attn = torch.softmax(logits.float(), dim=-1).to(dtype=q.dtype)
     out = torch.einsum("bthw,bthwd->bthd", attn, local_v)
     return out_proj(merge_heads(out))

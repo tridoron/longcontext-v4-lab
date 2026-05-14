@@ -179,6 +179,7 @@ def validate_sample(
         "doc_hash": h,
         "text": text,
         "approx_tokens": token_count,
+        "max_tokens": rule["max_tokens"],
     }, None
 
 

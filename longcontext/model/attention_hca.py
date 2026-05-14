@@ -8,6 +8,7 @@ from torch import nn
 from longcontext.model.attention_utils import (
     apply_block_rope,
     compress_kv,
+    causal_compressed_block_mask,
     gather_local_kv,
     merge_heads,
     split_heads,
@@ -65,16 +66,14 @@ class HCALiteAttention(nn.Module):
             self.config.rope.scaling_factor,
         )
         num_blocks = k_comp.shape[1]
-        token_ids = torch.arange(seq_len, device=x.device)
-        block_ids = torch.arange(num_blocks, device=x.device)
-        comp_valid = block_ids[None, :] < (token_ids[:, None] // self.block_size)
+        comp_valid = causal_compressed_block_mask(seq_len, num_blocks, self.block_size, x.device)
         comp_logits = torch.einsum("bthd,bghd->bthg", q, k_comp) / math.sqrt(
             self.config.d_head
         )
-        comp_logits = comp_logits.masked_fill(~comp_valid[None, :, None, :], torch.finfo(comp_logits.dtype).min)
+        comp_logits = comp_logits.masked_fill(~comp_valid[None, :, None, :], float("-inf"))
         local_k, local_v, local_valid = gather_local_kv(k_local, v_raw, self.local_window, attention_mask)
         local_logits = torch.einsum("bthd,bthwd->bthw", q, local_k) / math.sqrt(self.config.d_head)
-        local_logits = local_logits.masked_fill(~local_valid, torch.finfo(local_logits.dtype).min)
+        local_logits = local_logits.masked_fill(~local_valid, float("-inf"))
         logits = torch.cat((comp_logits, local_logits), dim=-1)
         attn = torch.softmax(logits.float(), dim=-1).to(dtype=x.dtype)
         comp_attn, local_attn = attn.split((num_blocks, local_v.shape[3]), dim=-1)

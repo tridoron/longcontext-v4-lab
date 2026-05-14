@@ -21,8 +21,15 @@ attention:
   hca: {compression_block_size: 64, local_window: 256}
 rope: {base: 10000, scaling_type: linear_position, scaling_factor: 1.0}
 mhc: {enabled: false}
-data: {train_file: data/shards/train_main_seq4096.bin, seq_len: 4096, batch_size: 1}
-training: {seen_tokens: 1000000000, ablation_seen_tokens: 150000000, gradient_checkpointing: true}
+data: {sources_config: configs/data_sources.yaml, train_key: train_main_seq4096, seq_len: 4096, micro_batch_size: 1}
+training:
+  seen_tokens: 1000000000
+  ablation_seen_tokens: 150000000
+  grad_accum_steps: 32
+  tokens_per_step: 131072
+  amp_dtype: bf16
+  milestone_tokens: [150000000, 500000000, 1000000000]
+  gradient_checkpointing: true
 optimizer:
   use_muon: false
   lr: 0.0003

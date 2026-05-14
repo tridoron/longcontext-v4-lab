@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -36,13 +37,15 @@ def save_training_state(
     seen_tokens: int,
     scheduler: Any | None = None,
     extra: dict[str, Any] | None = None,
+    include_optimizer: bool = True,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
     torch.save(
         {
             "model": model.state_dict(),
-            "optimizer": optimizer.state_dict() if optimizer is not None else None,
+            "optimizer": optimizer.state_dict() if include_optimizer and optimizer is not None else None,
             "scheduler": scheduler.state_dict() if scheduler is not None else None,
             "step": step,
             "seen_tokens": seen_tokens,
@@ -50,8 +53,19 @@ def save_training_state(
             "rng_state": torch.get_rng_state(),
             "cuda_rng_state": torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         },
-        path,
+        tmp_path,
     )
+    os.replace(tmp_path, path)
+
+
+def strip_optimizer_state(path: str | Path) -> None:
+    path = Path(path)
+    state = torch.load(path, map_location="cpu")
+    state["optimizer"] = None
+    state["scheduler"] = None
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    torch.save(state, tmp_path)
+    os.replace(tmp_path, path)
 
 
 def load_training_state(

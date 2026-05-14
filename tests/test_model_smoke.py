@@ -73,7 +73,10 @@ def test_loss_ignores_negative_100_labels():
     )
 
     assert out.loss is not None
+    assert out.loss_sum is not None
+    assert out.loss_tokens is not None
     assert torch.allclose(out.loss, expected)
+    assert out.loss_tokens.item() == 2
 
 
 def test_gradient_checkpointing_toggle():

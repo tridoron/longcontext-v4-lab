@@ -21,11 +21,15 @@ rope:
 mhc:
   enabled: false
 data:
-  train_file: data/shards/train_debug_seq1024.bin
+  sources_config: configs/data_sources.yaml
+  train_key: train_debug_seq1024
   seq_len: 1024
-  batch_size: 1
+  micro_batch_size: 1
 training:
   seen_tokens: 50000000
+  grad_accum_steps: 1
+  tokens_per_step: 1024
+  amp_dtype: bf16
   gradient_checkpointing: true
 optimizer:
   use_muon: false
